@@ -1,72 +1,123 @@
 <?php
 /**
- * PHP Email Sending Script for The Giant Movers Quote Form
+ * PHP Email Sending Script for The Giant Movers Quote Form using PHPMailer
  *
  * This script processes the form submission from get-a-quote.html,
- * formats the data, and sends it as an email.
- *
- * It uses a simple mail() function, which requires your server to be configured
- * to send emails. For more robust email sending (e.g., with SMTP, error handling,
- * and better spam prevention), consider using a library like PHPMailer.
+ * formats the data, and sends it as an email via SMTP using PHPMailer.
+ * It is designed to be compatible with BootstrapMade's validate.js.
  */
 
-// Define your recipient email address
-$receiving_email_address = 'info@thegiantmovers.com'; // Change this to your actual receiving email
+// IMPORTANT: Adjust the path to PHPMailer's autoloader based on your installation method.
+// If you installed via Composer:
+require '../vendor/autoload.php';
+// If you downloaded manually and placed src in forms/PHPMailer/src/:
+// require 'PHPMailer/src/PHPMailer.php';
+// require 'PHPMailer/src/SMTP.php';
+// require 'PHPMailer/src/Exception.php';
 
-// --- Configuration for messages (optional, can be passed back to JS) ---
-$sent_message = 'Your moving quote request has been sent successfully. Thank You!';
-$error_message = 'There was an error sending your message. Please try again later.';
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
+// Define your recipient email address
+$receiving_email_address = 'info@thegiantmovers.com'; // REPLACE with your actual receiving email
 
 // --- Process Form Data ---
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $name = filter_var($_POST['name'], FILTER_SANITIZE_STRING);
-    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
-    $phone = filter_var($_POST['phone'], FILTER_SANITIZE_STRING);
+    // Sanitize and validate input
+    $name = filter_var($_POST['name'] ?? '', FILTER_SANITIZE_STRING);
+    $email = filter_var($_POST['email'] ?? '', FILTER_SANITIZE_EMAIL);
+    $phone = filter_var($_POST['phone'] ?? '', FILTER_SANITIZE_STRING);
 
-    $departure_location = filter_var($_POST['departure_location'], FILTER_SANITIZE_STRING);
-    $delivery_location = filter_var($_POST['delivery_location'], FILTER_SANITIZE_STRING);
-    $preferred_move_date = filter_var($_POST['preferred_move_date'], FILTER_SANITIZE_STRING);
-    $type_of_property = filter_var($_POST['type_of_property'], FILTER_SANITIZE_STRING);
+    $departure_location = filter_var($_POST['departure_location'] ?? '', FILTER_SANITIZE_STRING);
+    $delivery_location = filter_var($_POST['delivery_location'] ?? '', FILTER_SANITIZE_STRING);
+    $preferred_move_date = filter_var($_POST['preferred_move_date'] ?? '', FILTER_SANITIZE_STRING);
+    $type_of_property = filter_var($_POST['type_of_property'] ?? '', FILTER_SANITIZE_STRING);
     $number_of_bedrooms = isset($_POST['number_of_bedrooms']) ? filter_var($_POST['number_of_bedrooms'], FILTER_SANITIZE_STRING) : 'Not specified';
-    $service_needed = filter_var($_POST['service_needed'], FILTER_SANITIZE_STRING);
-    $additional_message = filter_var($_POST['additional_message'], FILTER_SANITIZE_STRING);
+    $service_needed = filter_var($_POST['service_needed'] ?? '', FILTER_SANITIZE_STRING);
+    $additional_message = filter_var($_POST['additional_message'] ?? '', FILTER_SANITIZE_STRING);
+
+    // Basic validation (you can add more robust validation here)
+    if (empty($name) || !filter_var($email, FILTER_VALIDATE_EMAIL) || empty($phone)) {
+        echo "Please fill all required contact fields correctly.";
+        exit;
+    }
 
     // --- Prepare Email Content ---
     $subject = "New Quote Request from Website: " . $name;
 
-    $email_content = "Name: " . $name . "\n";
-    $email_content .= "Email: " . $email . "\n";
-    $email_content .= "Phone: " . $phone . "\n\n";
+    $email_body_text = "Name: " . $name . "\n";
+    $email_body_text .= "Email: " . $email . "\n";
+    $email_body_text .= "Phone: " . $phone . "\n\n";
 
-    $email_content .= "--- Moving Details ---\n";
-    $email_content .= "Current Location: " . $departure_location . "\n";
-    $email_content .= "Destination: " . $delivery_location . "\n";
-    $email_content .= "Preferred Move Date: " . $preferred_move_date . "\n";
-    $email_content .= "Type of Property: " . $type_of_property . "\n";
-    $email_content .= "Number of Bedrooms: " . $number_of_bedrooms . "\n";
-    $email_content .= "Service Needed: " . $service_needed . "\n\n";
-    $email_content .= "Additional Message:\n" . $additional_message . "\n";
+    $email_body_text .= "--- Moving Details ---\n";
+    $email_body_text .= "Current Location: " . $departure_location . "\n";
+    $email_body_text .= "Destination: " . $delivery_location . "\n";
+    $email_body_text .= "Preferred Move Date: " . $preferred_move_date . "\n";
+    $email_body_text .= "Type of Property: " . $type_of_property . "\n";
+    $email_body_text .= "Number of Bedrooms: " . $number_of_bedrooms . "\n";
+    $email_body_text .= "Service Needed: " . $service_needed . "\n\n";
+    $email_body_text .= "Additional Message:\n" . $additional_message . "\n";
 
-    // --- Set up Email Headers ---
-    $headers = "From: Website Quote <noreply@yourdomain.com>\r\n"; // IMPORTANT: Change 'yourdomain.com' to your actual domain
-    $headers .= "Reply-To: " . $email . "\r\n";
-    $headers .= "MIME-Version: 1.0\r\n";
-    $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+    // HTML version of the email body for better formatting
+    $email_body_html = "
+        <p>Dear The Giant Movers Team,</p>
+        <p>You have received a new moving quote request from your website with the following details:</p>
+        <table border='1' cellpadding='5' cellspacing='0' style='width:100%; border-collapse: collapse;'>
+            <tr><td style='background-color:#f2f2f2;'><strong>Name:</strong></td><td>" . htmlspecialchars($name) . "</td></tr>
+            <tr><td style='background-color:#f2f2f2;'><strong>Email:</strong></td><td>" . htmlspecialchars($email) . "</td></tr>
+            <tr><td style='background-color:#f2f2f2;'><strong>Phone:</strong></td><td>" . htmlspecialchars($phone) . "</td></tr>
+            <tr><td colspan='2' style='background-color:#e0e0e0; text-align:center;'><strong>Moving Details</strong></td></tr>
+            <tr><td style='background-color:#f2f2f2;'><strong>Current Location:</strong></td><td>" . htmlspecialchars($departure_location) . "</td></tr>
+            <tr><td style='background-color:#f2f2f2;'><strong>Destination:</strong></td><td>" . htmlspecialchars($delivery_location) . "</td></tr>
+            <tr><td style='background-color:#f2f2f2;'><strong>Preferred Move Date:</strong></td><td>" . htmlspecialchars($preferred_move_date) . "</td></tr>
+            <tr><td style='background-color:#f2f2f2;'><strong>Type of Property:</strong></td><td>" . htmlspecialchars($type_of_property) . "</td></tr>
+            <tr><td style='background-color:#f2f2f2;'><strong>Number of Bedrooms:</strong></td><td>" . htmlspecialchars($number_of_bedrooms) . "</td></tr>
+            <tr><td style='background-color:#f2f2f2;'><strong>Service Needed:</strong></td><td>" . htmlspecialchars($service_needed) . "</td></tr>
+            <tr><td style='background-color:#e0e0e0;'><strong>Additional Message:</strong></td><td>" . nl2br(htmlspecialchars($additional_message)) . "</td></tr>
+        </table>
+        <p>Best regards,<br>Website Visitor</p>
+    ";
 
-    // --- Send Email ---
-    if (mail($receiving_email_address, $subject, $email_content, $headers)) {
-        // Success: Redirect back to the form with a success parameter or message
-        // For simple redirect:
-        header('Location: ../get-a-quote.html?status=success');
+
+    // --- PHPMailer Configuration ---
+    $mail = new PHPMailer(true); // Passing `true` enables exceptions
+
+    try {
+        // Server settings
+        $mail->SMTPDebug = SMTP::DEBUG_OFF; // Set to SMTP::DEBUG_SERVER for detailed debug output
+        $mail->isSMTP();                     // Send using SMTP
+        $mail->Host       = 'smtp.gmail.com'; // REPLACE with your SMTP server (e.g., smtp.gmail.com, smtp.office365.com, smtp.sendgrid.net)
+        $mail->SMTPAuth   = true;             // Enable SMTP authentication
+        $mail->Username   = 'usman.ilm@gmail.com'; // REPLACE with your SMTP username (e.g., your email address)
+        $mail->Password   = 'oegm esrv oega woci '; // REPLACE with your SMTP password or App Password
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // Use SMTPS (SSL/TLS on port 465) or PHPMailer::ENCRYPTION_STARTTLS (TLS on port 587)
+        $mail->Port       = 465;              // TCP port to connect to; use 587 for STARTTLS
+
+        // Recipients
+        $mail->setFrom('noreply@yourdomain.com', 'The Giant Movers Website'); // REPLACE with a valid email from your domain and a sender name
+        $mail->addAddress($receiving_email_address); // Add recipient
+        $mail->addReplyTo($email, $name); // Reply to the client's email
+
+        // Content
+        $mail->isHTML(true); // Set email format to HTML
+        $mail->Subject = $subject;
+        $mail->Body    = $email_body_html;
+        $mail->AltBody = $email_body_text; // Plain text for non-HTML mail clients
+
+        $mail->send();
+        echo 'OK'; // IMPORTANT: Send 'OK' string on success for validate.js
         exit;
-    } else {
-        // Failure: Redirect back to the form with an error parameter or message
-        header('Location: ../get-a-quote.html?status=error');
+
+    } catch (Exception $e) {
+        // Failure: Send error message for validate.js
+        error_log("Message could not be sent. Mailer Error: {$mail->ErrorInfo}"); // Log the error for debugging
+        echo "Message could not be sent. Please try again later. Mailer Error: {$mail->ErrorInfo}"; // Send error to client
         exit;
     }
 } else {
-    // Not a POST request, redirect to the form
-    header('Location: ../get-a-quote.html');
+    // Not a POST request, redirect or show an error
+    echo "Invalid request method.";
     exit;
 }
 ?>
