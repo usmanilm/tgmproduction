@@ -1,0 +1,2 @@
+.env
+/vendor/ # If you haven't already, it's good practice to ignore the vendor directory too
