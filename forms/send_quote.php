@@ -9,7 +9,7 @@
 
 // IMPORTANT: Adjust the path to PHPMailer's autoloader based on your installation method.
 // If you installed via Composer:
-require '../vendor/autoload.php';
+require dirname(__DIR__) . '/vendor/autoload.php'; // Use dirname(__DIR__) to go up one level from 'forms'
 // If you downloaded manually and placed src in forms/PHPMailer/src/:
 // require 'PHPMailer/src/PHPMailer.php';
 // require 'PHPMailer/src/SMTP.php';
@@ -19,8 +19,12 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
-// Define your recipient email address
-$receiving_email_address = 'info@thegiantmovers.com'; // REPLACE with your actual receiving email
+// Load environment variables from .env file
+$dotenv = Dotenv\Dotenv::createImmutable(dirname(__DIR__)); // Go up one level to find .env
+$dotenv->load();
+
+// Define your recipient email address from .env
+$receiving_email_address = $_ENV['RECEIVING_EMAIL']; 
 
 // --- Process Form Data ---
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -87,15 +91,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Server settings
         $mail->SMTPDebug = SMTP::DEBUG_OFF; // Set to SMTP::DEBUG_SERVER for detailed debug output
         $mail->isSMTP();                     // Send using SMTP
-        $mail->Host       = 'smtp.gmail.com'; // REPLACE with your SMTP server (e.g., smtp.gmail.com, smtp.office365.com, smtp.sendgrid.net)
+        $mail->Host       = $_ENV['SMTP_HOST']; 
         $mail->SMTPAuth   = true;             // Enable SMTP authentication
-        $mail->Username   = 'usman.ilm@gmail.com'; // REPLACE with your SMTP username (e.g., your email address)
-        $mail->Password   = 'oegm esrv oega woci '; // REPLACE with your SMTP password or App Password
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // Use SMTPS (SSL/TLS on port 465) or PHPMailer::ENCRYPTION_STARTTLS (TLS on port 587)
-        $mail->Port       = 465;              // TCP port to connect to; use 587 for STARTTLS
+        $mail->Username   = $_ENV['SMTP_USERNAME']; 
+        $mail->Password   = $_ENV['SMTP_PASSWORD']; 
+        
+        // Determine SMTPSecure based on .env value
+        if ($_ENV['SMTP_SECURE'] === 'ssl') {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        } elseif ($_ENV['SMTP_SECURE'] === 'tls') {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        } else {
+            $mail->SMTPSecure = false; // No encryption
+        }
+
+        $mail->Port       = $_ENV['SMTP_PORT'];              
 
         // Recipients
-        $mail->setFrom('noreply@yourdomain.com', 'The Giant Movers Website'); // REPLACE with a valid email from your domain and a sender name
+        $mail->setFrom($_ENV['SENDER_EMAIL'], $_ENV['SENDER_NAME']); 
         $mail->addAddress($receiving_email_address); // Add recipient
         $mail->addReplyTo($email, $name); // Reply to the client's email
 
